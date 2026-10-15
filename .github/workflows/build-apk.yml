@@ -6,11 +6,6 @@ on:
       - 'hamid_taneel_fixed.zip'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
-    inputs:
-      worker_url:
-        description: 'Cloudflare Worker URL to bake into the APK'
-        required: false
-        default: ''
 
 jobs:
   build:
@@ -23,15 +18,6 @@ jobs:
           mkdir -p project
           unzip -q hamid_taneel_fixed.zip -d project
 
-      - name: Bake worker URL
-        if: github.event.inputs.worker_url != ''
-        working-directory: project
-        env:
-          WORKER_URL: ${{ github.event.inputs.worker_url }}
-        run: |
-          python3 -c "import json,os; p='app/src/main/assets/app_config.json'; d=json.load(open(p)); d['baked_worker_url']=os.environ['WORKER_URL']; json.dump(d, open(p,'w'), ensure_ascii=False, indent=2)"
-          cat app/src/main/assets/app_config.json
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -40,13 +26,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 9.3.1
-
-      - name: Create debug keystore
-        working-directory: project
-        run: |
-          keytool -genkeypair -keystore debug.keystore -storepass android -keypass android \
-            -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build debug APK
         working-directory: project
