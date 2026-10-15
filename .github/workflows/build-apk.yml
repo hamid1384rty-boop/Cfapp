@@ -1,16 +1,10 @@
 name: Build APK
 
 on:
+  workflow_dispatch:
   push:
     paths:
-      - 'hamid_taneel_fixed.zip'
-      - '.github/workflows/build-apk.yml'
-  workflow_dispatch:
-    inputs:
-      worker_url:
-        description: 'Cloudflare Worker URL to bake into the APK'
-        required: false
-        default: ''
+      - '**.zip'
 
 jobs:
   build:
@@ -20,17 +14,21 @@ jobs:
 
       - name: Unzip project
         run: |
+          ZIP=$(ls *.zip | head -n1)
           mkdir -p project
-          unzip -q hamid_taneel_fixed.zip -d project
+          unzip -q "$ZIP" -d project
+          PROJ=$(dirname "$(find project -name settings.gradle.kts | head -n1)")
+          echo "PROJECT_DIR=$PROJ" >> $GITHUB_ENV
 
-      - name: Bake worker URL
-        if: github.event.inputs.worker_url != ''
-        working-directory: project
-        env:
-          WORKER_URL: ${{ github.event.inputs.worker_url }}
+      - name: Set worker URL
         run: |
-          python3 -c "import json,os; p='app/src/main/assets/app_config.json'; d=json.load(open(p)); d['baked_worker_url']=os.environ['WORKER_URL'].rstrip('/'); d['is_client_locked']=True; json.dump(d, open(p,'w'), ensure_ascii=False, indent=2)"
-          cat app/src/main/assets/app_config.json
+          cat > "$PROJECT_DIR/app/src/main/assets/app_config.json" <<'JSON'
+          {
+            "baked_worker_url": "https://dark-math-9990.hamid1384uio.workers.dev",
+            "is_client_locked": true,
+            "app_name": "hamid_taneel"
+          }
+          JSON
 
       - uses: actions/setup-java@v4
         with:
@@ -38,16 +36,14 @@ jobs:
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: 9.3.1
 
       - name: Build debug APK
-        working-directory: project
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-        run: gradle :app:assembleDebug --no-daemon
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
-          name: hamid_taneel-debug-apk
-          path: project/app/build/outputs/apk/debug/*.apk
+          name: hamid_taneel-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
