@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - '**.zip'
+      - '**.ZIP'
 
 jobs:
   build:
@@ -14,7 +15,7 @@ jobs:
 
       - name: Unzip project
         run: |
-          ZIP=$(ls *.zip | head -n1)
+          ZIP=$(ls *.zip *.ZIP 2>/dev/null | head -n1)
           mkdir -p project
           unzip -q "$ZIP" -d project
           PROJ=$(dirname "$(find project -name settings.gradle.kts | head -n1)")
@@ -22,6 +23,7 @@ jobs:
 
       - name: Set worker URL
         run: |
+          mkdir -p "$PROJECT_DIR/app/src/main/assets"
           cat > "$PROJECT_DIR/app/src/main/assets/app_config.json" <<'JSON'
           {
             "baked_worker_url": "https://dark-math-9990.hamid1384uio.workers.dev",
@@ -30,10 +32,25 @@ jobs:
           }
           JSON
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.PROJECT_DIR }}/xray-core/go.mod
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          sdkmanager "ndk;27.2.12479018"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> $GITHUB_ENV
+
+      - name: Build Xray-core AAR
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: bash build_xray.sh
 
       - uses: gradle/actions/setup-gradle@v4
         with:
