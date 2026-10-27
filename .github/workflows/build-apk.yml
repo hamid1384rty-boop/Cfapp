@@ -50,7 +50,11 @@ jobs:
 
       - name: Build Xray-core AAR
         working-directory: ${{ env.PROJECT_DIR }}
-        run: bash build_xray.sh
+        run: |
+          # fix: wlynxg/anet uses go:linkname that new Go linkers block
+          sed -i 's/-buildid=/-buildid= -checklinkname=0/' build_xray.sh
+          grep -n ldflags build_xray.sh
+          bash build_xray.sh
 
       - uses: gradle/actions/setup-gradle@v4
         with:
